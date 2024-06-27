@@ -1,46 +1,82 @@
 package io.activeledger;
 
-import org.web3j.crypto.ECKeyPair;
-import org.web3j.crypto.Keys;
-import org.web3j.utils.Numeric;
+import org.bouncycastle.asn1.x9.ECNamedCurveTable;
+import org.bouncycastle.crypto.generators.ECKeyPairGenerator;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
+import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey;
+import org.bouncycastle.jce.interfaces.ECPublicKey;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.util.encoders.Hex;
 
-import java.security.InvalidAlgorithmParameterException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
+import java.security.*;
+import java.security.interfaces.ECPrivateKey;
+import java.security.spec.ECGenParameterSpec;
 
 public class KeyGenerator {
 
-    public KeyPair generate() throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException {
-        ECKeyPair keyPair = generateKeyPair();
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
-        String privateKeyHex = "0x" + keyPair.getPrivateKey().toString(16);
-        String publicKeyHex = getCompressedPublicKey(keyPair);
+    public ALKeyPair generate() throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException {
+        KeyPairGenerator generator;
+        generator = KeyPairGenerator.getInstance("ECDSA", "BC");
 
-        KeyPair pair;
-        pair = new KeyPair(privateKeyHex, publicKeyHex);
+        ECGenParameterSpec spec;
+        spec = new ECGenParameterSpec("secp256k1");
+
+        generator.initialize(spec, new SecureRandom());
+
+        KeyPair rawPair;
+        rawPair = generator.generateKeyPair();
+
+        String prvKey;
+//        prvKey = "0x" + Hex.toHexString(rawPair.getPrivate().getEncoded());
+        prvKey = "0x" + getPrivateKey(rawPair.getPrivate());
+
+        String pubKey;
+        pubKey = "0x" + compressPublicKey(rawPair.getPublic());
+//        System.out.println("Private key hex: " + prvKey);
+//        System.out.println("Public key hex: " + pubKey);
+
+//        System.out.println("Private Key\n" + rawPair.getPrivate().toString());
+//        System.out.println("Public Key\n" +  rawPair.getPublic().toString());
+
+        ALKeyPair pair;
+        pair = new ALKeyPair(prvKey, pubKey);
+
         return pair;
     }
 
-    private ECKeyPair generateKeyPair() throws InvalidAlgorithmParameterException, NoSuchAlgorithmException, NoSuchProviderException {
-        ECKeyPair ecKeyPair;
-        ecKeyPair = Keys.createEcKeyPair();
-        return ecKeyPair;
+    private String getPrivateKey(PrivateKey privateKey) {
+        BCECPrivateKey key;
+        key = (BCECPrivateKey) privateKey;
+
+        byte[] keyBytes;
+        keyBytes = key.getD().toByteArray();
+
+        String hex;
+        hex = Hex.toHexString(keyBytes);
+
+//        String unpadded;
+//        unpadded = removePadding(hex);
+
+        return hex;
     }
 
-    private String getCompressedPublicKey(ECKeyPair keyPair) {
-        String hex = Numeric.toHexStringWithPrefixZeroPadded(keyPair.getPublicKey(), 128);
-        String compressed = compressPublicKey(hex);
-        return "0x" + compressed;
+    private String compressPublicKey(PublicKey key) {
+        ECPoint q = ((org.bouncycastle.jce.interfaces.ECPublicKey) key).getQ().normalize();
+
+        byte[] compressed = q.getEncoded(true);
+        return Hex.toHexString(compressed);
     }
 
-    private String compressPublicKey(String hex) {
-        String x = hex.substring(2, 66);
-        String y = hex.substring(66, 130);
+    private String removePadding(String paddedKey) {
+        String key;
+        key = paddedKey.replaceFirst("^0+(?!$)", "");
 
-        int yInt = Integer.parseInt(y.substring(63), 16);
-        boolean isEven =  (yInt & 1) == 0;
-        int prefix = isEven ? 0x02 : 0x03;
-
-        return String.format("%02x", prefix) + x;
+        return key;
     }
 }

@@ -9,43 +9,28 @@ class SignerTest {
     @Test
     public void testSignAndVerify() throws Exception {
         KeyGenerator gen = new KeyGenerator();
-        KeyPair pair = gen.generate();
+        ALKeyPair pair = gen.generate();
 
-        String data = "Hello world";
+        System.out.println("Public Key: " + pair.getPublic() + "\n");
+        System.out.println("Private Key: " + pair.getPrivate() + "\n");
+
+        String data = "{\"tx\": \"Hello world\"}";
         Signer signer = new Signer();
 
         String sig = signer.sign(pair.getPrivate(), data);
 
         assertNotNull(sig);
 
-        System.out.println("Base64 Signature: " + sig);
+        System.out.println("Signature: " + sig);
 
         boolean isValid = signer.verify(pair.getPublic(), sig, data);
         assertTrue(isValid);
     }
 
     @Test
-    public void testSignAndVerifyHex() throws Exception {
-        KeyGenerator gen = new KeyGenerator();
-        KeyPair pair = gen.generate();
-
-        String data = "Hello world";
-        Signer signer = new Signer();
-
-        String sig = signer.signHex(pair.getPrivate(), data);
-
-        assertNotNull(sig);
-
-        System.out.println("Hex Signature: " + sig);
-
-        boolean isValid = signer.verifyHex(pair.getPublic(), sig, data);
-        assertTrue(isValid);
-    }
-
-    @Test
     public void testSignTransaction() throws Exception {
         KeyGenerator gen = new KeyGenerator();
-        KeyPair pair = gen.generate();
+        ALKeyPair pair = gen.generate();
 
         String data = """
                 {
@@ -61,15 +46,27 @@ class SignerTest {
                 """.formatted(pair.getPublic());
 
         Signer signer = new Signer();
-        String sigHex = signer.signHex(pair.getPrivate(), data);
-        String sigB64 = signer.sign(pair.getPrivate(), "data");
+        String sig = signer.sign(pair.getPrivate(), data);
 
-        assertNotNull(sigB64);
-        assertNotNull(sigHex);
+        assertNotNull(sig);
 
         System.out.println("Transaction: \n" + data);
-        System.out.println("Hex Signature: " + sigHex);
-        System.out.println("B64 Signature: " + sigB64);
+        System.out.println("Private key: " + pair.getPrivate());
+        System.out.println("Signature: " + sig);
+
+        boolean isValid = signer.verify(pair.getPublic(), sig, data);
+        assertTrue(isValid);
+    }
+
+    @Test
+    public void testNumerousKeys() throws Exception {
+        KeyGenerator g = new KeyGenerator();
+
+        for (var i = 0; i < 20; i++) {
+            ALKeyPair pair = g.generate();
+
+            System.out.println("Key " + (i + 1) + " Public: " + pair.getPublic());
+        }
     }
 
 }

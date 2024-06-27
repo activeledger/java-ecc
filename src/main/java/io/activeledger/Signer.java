@@ -1,129 +1,263 @@
 package io.activeledger;
 
-import org.web3j.crypto.ECKeyPair;
-import org.web3j.crypto.Sign;
-import org.web3j.utils.Numeric;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.crypto.signers.ECDSASigner;
+import org.bouncycastle.crypto.util.PrivateKeyFactory;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
+import org.bouncycastle.jce.spec.ECNamedCurveSpec;
+import org.bouncycastle.util.encoders.Hex;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+import javax.json.JsonWriter;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.math.BigInteger;
-import java.security.SignatureException;
+import java.security.*;
+import java.security.spec.*;
 import java.util.Base64;
+import java.security.spec.ECPrivateKeySpec;
+import java.security.spec.ECPublicKeySpec;
 
 public class Signer {
 
-    public String sign(String privateKey, String data) {
-        ECKeyPair pair;
-        pair = getPair(privateKey);
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
-        byte[] rawSig;
-        rawSig = createSignature(pair, data);
+    public String sign(String privateKeyHex, String data) throws NoSuchAlgorithmException, InvalidKeySpecException, SignatureException, NoSuchProviderException, InvalidKeyException, IOException {
+//        PrivateKey key;
+//        key = getPrivateKey(privateKeyHex);
+
+        byte[] keyBytes = Hex.decode(privateKeyHex.replace("0x", ""));
+        ECNamedCurveParameterSpec bcSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+        ECPrivateKeyParameters keyParams = new ECPrivateKeyParameters(
+                new BigInteger(1, keyBytes),
+                new ECDomainParameters(
+                        bcSpec.getCurve(),
+                        bcSpec.getG(),
+                        bcSpec.getN(),
+                        bcSpec.getH()
+                )
+        );
+
+        String formattedData;
+        formattedData = encodeJSON(data);
+
+//        byte[] dataHash;
+//        dataHash = hashData(formattedData);
+
+//        byte[] keyBytes = Hex.decode(privateKeyHex.replace("0x", ""));
+
+//        ECPrivateKeyParameters keyParams;
+//        keyParams = (ECPrivateKeyParameters) PrivateKeyFactory.createKey(keyBytes);
+
+        ECDSASigner signer;
+        signer = new ECDSASigner();
+
+        signer.init(true, keyParams);
+        BigInteger[] signatureComponents;
+        signatureComponents = signer.generateSignature(formattedData.getBytes());
+
+        byte[] r = toFixedLength(signatureComponents[0].toByteArray(), 32);
+        byte[] s = toFixedLength(signatureComponents[1].toByteArray(), 32);
+        byte[] signature = new byte[64];
+        System.arraycopy(r, 0, signature, 32 - r.length, r.length);
+        System.arraycopy(s, 0, signature, 64 - s.length, s.length);
+
+
+//        Signature ecSign;
+//        ecSign = Signature.getInstance("SHA256withECDSA", "BC");
+//
+//        ecSign.initSign(key);
+//        ecSign.update(dataHash);
+//
+//        byte[] rawSig;
+//        rawSig = ecSign.sign();
+
+        System.out.println("Data Hash: " + Hex.toHexString(formattedData.getBytes()));
+        System.out.println("Signature: " + Base64.getEncoder().encodeToString(signature));
+
+//        System.out.println("Sig: " + rawSig);
 
         String encodedSig;
-        encodedSig = Base64.getEncoder().encodeToString(rawSig);
+        encodedSig = Base64.getEncoder().encodeToString(signature);
 
         return encodedSig;
     }
 
-    public String signHex(String privateKey, String data) {
-        ECKeyPair pair;
-        pair = getPair(privateKey);
+    public boolean verify(String publicKeyHex, String signature, String data) throws SignatureException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchProviderException, InvalidKeyException {
+//        PublicKey key;
+//        key = getPublicKey(publicKeyHex);
+        byte[] compressedKey = Hex.decode(publicKeyHex.replace("0x", ""));
+        ECNamedCurveParameterSpec bcSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+        org.bouncycastle.math.ec.ECPoint point = bcSpec.getCurve().decodePoint(compressedKey);
+        ECPublicKeyParameters publicKeyParams = new ECPublicKeyParameters(point, new ECDomainParameters(bcSpec.getCurve(), bcSpec.getG(), bcSpec.getN(), bcSpec.getH()));
 
-        byte[] rawSig;
-        rawSig = createSignature(pair, data);
+        String formattedData;
+        formattedData = encodeJSON(data);
 
-        String encodedSig;
-        encodedSig = "0x" + Numeric.toHexString(rawSig);
-        return encodedSig;
-    }
+//        byte[] dataHash;
+//        dataHash = hashData(formattedData);
 
-    public boolean verify(String publicKey, String signature, String data) throws SignatureException {
-        byte[] sigDecoded;
-        sigDecoded = Base64.getDecoder().decode(signature);
+//        Signature ecVerify;
+//        ecVerify = Signature.getInstance("SHA256withECDSA", "BC");
+//        ecVerify.initVerify(key);
+//        ecVerify.update(dataHash);
+//
+        byte[] signatureBytes;
+        signatureBytes = Base64.getDecoder().decode(signature);
 
-        String recoveredKey;
-        recoveredKey = recoverAndCompress(sigDecoded, data);
+        byte[] r = new byte[32];
+        byte[] s = new byte[32];
+        System.arraycopy(signatureBytes, 0, r, 0, 32);
+        System.arraycopy(signatureBytes, 32, s, 0, 32);
+        BigInteger rBigInt = new BigInteger(1, r);
+        BigInteger sBigInt = new BigInteger(1, s);
+
+        ECDSASigner verifier = new ECDSASigner();
+        verifier.init(false, publicKeyParams);
+
+        System.out.println("Data Hash (Verify): " + Hex.toHexString(formattedData.getBytes()));
+        System.out.println("Signature (Verify): " + Base64.getEncoder().encodeToString(signatureBytes));
 
         boolean isValid;
-        isValid = publicKey.equalsIgnoreCase(recoveredKey);
+        isValid = verifier.verifySignature(formattedData.getBytes(), rBigInt, sBigInt);
+
         return isValid;
     }
 
-    public boolean verifyHex(String publicKey, String signature, String data) throws SignatureException {
-        byte[] sigBytes = Numeric.hexStringToByteArray(
-                signature.replace("0x", "")
+    private PrivateKey getPrivateKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+        keyHex = keyHex.replace("0x", "");
+
+        byte[] keyBytes;
+        keyBytes = Hex.decode(keyHex);
+
+        ECNamedCurveParameterSpec bcSpec;
+        bcSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+
+        EllipticCurve curve;
+        curve = new EllipticCurve(
+                new ECFieldFp(bcSpec.getCurve().getField().getCharacteristic()),
+                bcSpec.getCurve().getA().toBigInteger(),
+                bcSpec.getCurve().getB().toBigInteger()
         );
 
-        String recoveredKey;
-        recoveredKey = recoverAndCompress(sigBytes, data);
-
-        boolean isValid;
-        isValid = publicKey.equalsIgnoreCase(recoveredKey);
-
-        return isValid;
-    }
-
-    private String recoverAndCompress(byte[] signature, String data) throws SignatureException {
-        Sign.SignatureData signatureData = new Sign.SignatureData(
-                new byte[]{signature[signature.length - 1]},
-                copyOfRange(signature, 0, 32),
-                copyOfRange(signature, 32, 64)
+        java.security.spec.ECPoint gPoint;
+        gPoint = new java.security.spec.ECPoint(
+                bcSpec.getG().getAffineXCoord().toBigInteger(),
+                bcSpec.getG().getAffineYCoord().toBigInteger()
         );
 
-        String recoveredPubKey;
-        recoveredPubKey = Numeric.toHexStringNoPrefix(Sign.signedMessageToKey(data.getBytes(), signatureData));
+        ECParameterSpec spec = new ECParameterSpec(
+                curve,
+                gPoint,
+                bcSpec.getN(),
+                bcSpec.getH().intValue()
+        );
 
-        String compressedRecoveredPubKey;
-        compressedRecoveredPubKey = compressPublicKey(recoveredPubKey);
+        ECPrivateKeySpec keySpec;
+        keySpec = new ECPrivateKeySpec(
+                new BigInteger(1, keyBytes),
+                spec
+        );
 
-        String finalKey;
-        finalKey = "0x" + compressedRecoveredPubKey;
-        return  finalKey;
+        KeyFactory factory;
+        factory = KeyFactory.getInstance("ECDSA", "BC");
 
+        PrivateKey privateKey;
+        privateKey = factory.generatePrivate(keySpec);
+
+        return privateKey;
     }
 
-    private ECKeyPair getPair(String privateKey) {
-        BigInteger key;
-        key = Numeric.toBigInt(privateKey);
 
-        ECKeyPair pair;
-        pair = ECKeyPair.create(key);
+    private PublicKey getPublicKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+        keyHex = keyHex.replace("0x", "");
 
-        return pair;
+        byte[] compressedKey;
+        compressedKey = Hex.decode(keyHex);
+
+        ECNamedCurveParameterSpec spec;
+        spec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+
+        org.bouncycastle.math.ec.ECPoint point;
+        point = spec.getCurve().decodePoint(compressedKey);
+        point = point.normalize();
+
+        java.security.spec.ECPoint javaPoint;
+        javaPoint = new java.security.spec.ECPoint(
+                point.getAffineXCoord().toBigInteger(),
+                point.getAffineYCoord().toBigInteger()
+        );
+
+        ECPublicKeySpec keySpec;
+        keySpec = new ECPublicKeySpec(javaPoint, new ECNamedCurveSpec(
+                "secp256k1",
+                spec.getCurve(),
+                spec.getG(),
+                spec.getN()
+        ));
+
+        KeyFactory factory;
+        factory = KeyFactory.getInstance("ECDSA", "BC");
+
+        PublicKey key;
+        key = factory.generatePublic(keySpec);
+
+//        System.out.println("Public Key\n" +  key.toString());
+
+        return key;
     }
 
-    private byte[] createSignature(ECKeyPair pair, String data) {
-        Sign.SignatureData signatureData;
-        signatureData = Sign.signMessage(data.getBytes(), pair);
+    private String encodeJSON(String data) {
+        data = data.trim();
 
-        byte[] r, s, signature;
-        r = signatureData.getR();
-        s = signatureData.getS();
-        signature = new byte[r.length + s.length + 1];
+        JsonReader reader;
+        reader = Json.createReader(new StringReader(data));
 
-        System.arraycopy(r, 0, signature, 0, r.length);
-        System.arraycopy(s, 0, signature, r.length, s.length);
+        JsonObject object;
+        object = reader.readObject();
 
-        signature[signature.length - 1] = signatureData.getV()[0];
+        StringWriter writer;
+        writer = new StringWriter();
 
-        return signature;
+        JsonWriter jsonWriter;
+        jsonWriter = Json.createWriter(writer);
+
+        jsonWriter.write(object);
+
+        String jsonString;
+        jsonString = writer.toString();
+
+//        System.out.println("JSON string:\n" + jsonString);
+
+        return jsonString;
     }
 
-    private String compressPublicKey(String uncompressedKey) {
-        String x = uncompressedKey.substring(0, 64);
-        String y = uncompressedKey.substring(64, 128);
+    private byte[] hashData(String data) throws NoSuchAlgorithmException {
+        MessageDigest sha256;
+        sha256 = MessageDigest.getInstance("SHA-256");
 
-        int yInt = Integer.parseInt(y.substring(63), 16);
-        boolean isEven =  (yInt & 1) == 0;
-        int prefix = isEven ? 0x02 : 0x03;
+        byte[] dataHash;
+        dataHash = sha256.digest(data.getBytes());
 
-        return String.format("%02x", prefix) + x;
+        return dataHash;
     }
 
-    private static byte[] copyOfRange(byte[] source, int from, int to) {
-        byte[] range;
-        range = new byte[to - from];
-
-        System.arraycopy(source, from, range, 0, range.length);
-
-        return range;
+    private byte[] toFixedLength(byte[] src, int length) {
+        byte[] dest = new byte[length];
+        if (src.length <= length) {
+            System.arraycopy(src, 0, dest, length - src.length, src.length);
+        } else {
+            System.arraycopy(src, src.length - length, dest, 0, length);
+        }
+        return dest;
     }
+
 }

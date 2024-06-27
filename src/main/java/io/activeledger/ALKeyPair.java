@@ -1,10 +1,10 @@
 package io.activeledger;
 
-public class KeyPair {
+public class ALKeyPair {
     private final String privateKey;
     private final String publicKey;
 
-    public KeyPair(String privateKey, String publicKey) {
+    public ALKeyPair(String privateKey, String publicKey) {
         this.privateKey = privateKey;
         this.publicKey = publicKey;
     }

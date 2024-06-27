@@ -11,7 +11,7 @@ class KeyGeneratorTest {
     @DisplayName("Generate key pair")
     public void testGenerateKeys() throws Exception {
         KeyGenerator keyGen = new KeyGenerator();
-        KeyPair pair = keyGen.generate();
+        ALKeyPair pair = keyGen.generate();
 
         assertNotNull(pair.getPrivate());
         assertNotNull(pair.getPublic());
