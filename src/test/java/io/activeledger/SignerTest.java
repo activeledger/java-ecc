@@ -52,6 +52,7 @@ class SignerTest {
 
         System.out.println("Transaction: \n" + data);
         System.out.println("Private key: " + pair.getPrivate());
+        System.out.println("Public key: " + pair.getPublic());
         System.out.println("Signature: " + sig);
 
         boolean isValid = signer.verify(pair.getPublic(), sig, data);

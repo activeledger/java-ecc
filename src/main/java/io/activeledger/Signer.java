@@ -5,9 +5,12 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.signers.ECDSASigner;
 import org.bouncycastle.crypto.util.PrivateKeyFactory;
+import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
+import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 import org.bouncycastle.util.encoders.Hex;
 
 import javax.json.Json;
@@ -21,7 +24,6 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.*;
 import java.util.Base64;
-import java.security.spec.ECPrivateKeySpec;
 import java.security.spec.ECPublicKeySpec;
 
 public class Signer {
@@ -57,28 +59,42 @@ public class Signer {
 //        ECPrivateKeyParameters keyParams;
 //        keyParams = (ECPrivateKeyParameters) PrivateKeyFactory.createKey(keyBytes);
 
-        ECDSASigner signer;
-        signer = new ECDSASigner();
+        byte[] keyData;
+        keyData = Hex.decode(privateKeyHex.replace("0x", ""));
+        KeyFactory factory;
+        factory = KeyFactory.getInstance("ECDSA", "BC");
 
-        signer.init(true, keyParams);
-        BigInteger[] signatureComponents;
-        signatureComponents = signer.generateSignature(formattedData.getBytes());
+        BigInteger keyInt;
+        keyInt = new BigInteger(privateKeyHex.replace("0x", ""), 16);
 
-        byte[] r = toFixedLength(signatureComponents[0].toByteArray(), 32);
-        byte[] s = toFixedLength(signatureComponents[1].toByteArray(), 32);
-        byte[] signature = new byte[64];
-        System.arraycopy(r, 0, signature, 32 - r.length, r.length);
-        System.arraycopy(s, 0, signature, 64 - s.length, s.length);
+        ECParameterSpec paramSpec;
+        paramSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
 
+        ECPrivateKeySpec skSpec;
+        skSpec = new ECPrivateKeySpec(keyInt, paramSpec);
 
-//        Signature ecSign;
-//        ecSign = Signature.getInstance("SHA256withECDSA", "BC");
+        PrivateKey sk;
+        sk = factory.generatePrivate(skSpec);
+
+        Signature sign = Signature.getInstance("SHA256withECDSA", "BC");
+        sign.initSign(sk);
+
+        sign.update(formattedData.getBytes());
+        byte[] signature;
+        signature = sign.sign();
+
+//        ECDSASigner signer;
+//        signer = new ECDSASigner();
 //
-//        ecSign.initSign(key);
-//        ecSign.update(dataHash);
+//        signer.init(true, keyParams);
+//        BigInteger[] signatureComponents;
+//        signatureComponents = signer.generateSignature(formattedData.getBytes());
 //
-//        byte[] rawSig;
-//        rawSig = ecSign.sign();
+//        byte[] r = toFixedLength(signatureComponents[0].toByteArray(), 32);
+//        byte[] s = toFixedLength(signatureComponents[1].toByteArray(), 32);
+//        byte[] signature = new byte[64];
+//        System.arraycopy(r, 0, signature, 32 - r.length, r.length);
+//        System.arraycopy(s, 0, signature, 64 - s.length, s.length);
 
         System.out.println("Data Hash: " + Hex.toHexString(formattedData.getBytes()));
         System.out.println("Signature: " + Base64.getEncoder().encodeToString(signature));
@@ -132,88 +148,88 @@ public class Signer {
         return isValid;
     }
 
-    private PrivateKey getPrivateKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
-        keyHex = keyHex.replace("0x", "");
+   // private PrivateKey getPrivateKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+   //     keyHex = keyHex.replace("0x", "");
 
-        byte[] keyBytes;
-        keyBytes = Hex.decode(keyHex);
+   //     byte[] keyBytes;
+   //     keyBytes = Hex.decode(keyHex);
 
-        ECNamedCurveParameterSpec bcSpec;
-        bcSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+   //     ECNamedCurveParameterSpec bcSpec;
+   //     bcSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
 
-        EllipticCurve curve;
-        curve = new EllipticCurve(
-                new ECFieldFp(bcSpec.getCurve().getField().getCharacteristic()),
-                bcSpec.getCurve().getA().toBigInteger(),
-                bcSpec.getCurve().getB().toBigInteger()
-        );
+   //     EllipticCurve curve;
+   //     curve = new EllipticCurve(
+   //             new ECFieldFp(bcSpec.getCurve().getField().getCharacteristic()),
+   //             bcSpec.getCurve().getA().toBigInteger(),
+   //             bcSpec.getCurve().getB().toBigInteger()
+   //     );
 
-        java.security.spec.ECPoint gPoint;
-        gPoint = new java.security.spec.ECPoint(
-                bcSpec.getG().getAffineXCoord().toBigInteger(),
-                bcSpec.getG().getAffineYCoord().toBigInteger()
-        );
+   //     java.security.spec.ECPoint gPoint;
+   //     gPoint = new java.security.spec.ECPoint(
+   //             bcSpec.getG().getAffineXCoord().toBigInteger(),
+   //             bcSpec.getG().getAffineYCoord().toBigInteger()
+   //     );
 
-        ECParameterSpec spec = new ECParameterSpec(
-                curve,
-                gPoint,
-                bcSpec.getN(),
-                bcSpec.getH().intValue()
-        );
+   //     ECParameterSpec spec = new ECParameterSpec(
+   //             curve,
+   //             gPoint,
+   //             bcSpec.getN(),
+   //             bcSpec.getH().intValue()
+   //     );
 
-        ECPrivateKeySpec keySpec;
-        keySpec = new ECPrivateKeySpec(
-                new BigInteger(1, keyBytes),
-                spec
-        );
+   //     ECPrivateKeySpec keySpec;
+   //     keySpec = new ECPrivateKeySpec(
+   //             new BigInteger(1, keyBytes),
+   //             spec
+   //     );
 
-        KeyFactory factory;
-        factory = KeyFactory.getInstance("ECDSA", "BC");
+   //     KeyFactory factory;
+   //     factory = KeyFactory.getInstance("ECDSA", "BC");
 
-        PrivateKey privateKey;
-        privateKey = factory.generatePrivate(keySpec);
+   //     PrivateKey privateKey;
+   //     privateKey = factory.generatePrivate(keySpec);
 
-        return privateKey;
-    }
+   //     return privateKey;
+   // }
 
 
-    private PublicKey getPublicKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
-        keyHex = keyHex.replace("0x", "");
+   // private PublicKey getPublicKey(String keyHex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeySpecException {
+   //     keyHex = keyHex.replace("0x", "");
 
-        byte[] compressedKey;
-        compressedKey = Hex.decode(keyHex);
+   //     byte[] compressedKey;
+   //     compressedKey = Hex.decode(keyHex);
 
-        ECNamedCurveParameterSpec spec;
-        spec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
+   //     ECNamedCurveParameterSpec spec;
+   //     spec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1");
 
-        org.bouncycastle.math.ec.ECPoint point;
-        point = spec.getCurve().decodePoint(compressedKey);
-        point = point.normalize();
+   //     org.bouncycastle.math.ec.ECPoint point;
+   //     point = spec.getCurve().decodePoint(compressedKey);
+   //     point = point.normalize();
 
-        java.security.spec.ECPoint javaPoint;
-        javaPoint = new java.security.spec.ECPoint(
-                point.getAffineXCoord().toBigInteger(),
-                point.getAffineYCoord().toBigInteger()
-        );
+   //     java.security.spec.ECPoint javaPoint;
+   //     javaPoint = new java.security.spec.ECPoint(
+   //             point.getAffineXCoord().toBigInteger(),
+   //             point.getAffineYCoord().toBigInteger()
+   //     );
 
-        ECPublicKeySpec keySpec;
-        keySpec = new ECPublicKeySpec(javaPoint, new ECNamedCurveSpec(
-                "secp256k1",
-                spec.getCurve(),
-                spec.getG(),
-                spec.getN()
-        ));
+   //     ECPublicKeySpec keySpec;
+   //     keySpec = new ECPublicKeySpec(javaPoint, new ECNamedCurveSpec(
+   //             "secp256k1",
+   //             spec.getCurve(),
+   //             spec.getG(),
+   //             spec.getN()
+   //     ));
 
-        KeyFactory factory;
-        factory = KeyFactory.getInstance("ECDSA", "BC");
+   //     KeyFactory factory;
+   //     factory = KeyFactory.getInstance("ECDSA", "BC");
 
-        PublicKey key;
-        key = factory.generatePublic(keySpec);
+   //     PublicKey key;
+   //     key = factory.generatePublic(keySpec);
 
-//        System.out.println("Public Key\n" +  key.toString());
+// //       System.out.println("Public Key\n" +  key.toString());
 
-        return key;
-    }
+   //     return key;
+   // }
 
     private String encodeJSON(String data) {
         data = data.trim();
@@ -234,8 +250,6 @@ public class Signer {
 
         String jsonString;
         jsonString = writer.toString();
-
-//        System.out.println("JSON string:\n" + jsonString);
 
         return jsonString;
     }
