@@ -1,12 +1,9 @@
 package io.activeledger;
 
 import org.bouncycastle.jce.ECPointUtil;
-import org.bouncycastle.util.encoders.Hex;
 
-import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.*;
-import java.util.Arrays;
 
 class ALPublicKey {
     public static PublicKey hexToPublicKey(String hex) throws NoSuchAlgorithmException, NoSuchProviderException, InvalidKeyException, InvalidKeySpecException, InvalidParameterSpecException {

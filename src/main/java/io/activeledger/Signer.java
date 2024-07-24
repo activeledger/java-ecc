@@ -1,12 +1,6 @@
 package io.activeledger;
 
-import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.jce.spec.ECParameterSpec;
-import org.bouncycastle.jce.spec.ECPrivateKeySpec;
-//import org.bouncycastle.jce.spec.ECPublicKeySpec;
-import org.bouncycastle.util.encoders.Hex;
-//import org.bouncycastle.math.ec.ECPoint;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -15,10 +9,8 @@ import javax.json.JsonWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.*;
-import java.util.Arrays;
 import java.util.Base64;
 
 public class Signer {

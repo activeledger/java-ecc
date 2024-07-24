@@ -1,17 +1,11 @@
 package io.activeledger;
 
-import org.bouncycastle.asn1.x9.ECNamedCurveTable;
-import org.bouncycastle.crypto.generators.ECKeyPairGenerator;
-import org.bouncycastle.crypto.params.ECDomainParameters;
-import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey;
-import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 
 import java.security.*;
-import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECGenParameterSpec;
 
 public class KeyGenerator {
@@ -33,16 +27,10 @@ public class KeyGenerator {
         rawPair = generator.generateKeyPair();
 
         String prvKey;
-//        prvKey = "0x" + Hex.toHexString(rawPair.getPrivate().getEncoded());
         prvKey = "0x" + getPrivateKey(rawPair.getPrivate());
 
         String pubKey;
         pubKey = "0x" + compressPublicKey(rawPair.getPublic());
-//        System.out.println("Private key hex: " + prvKey);
-//        System.out.println("Public key hex: " + pubKey);
-
-//        System.out.println("Private Key\n" + rawPair.getPrivate().toString());
-//        System.out.println("Public Key\n" +  rawPair.getPublic().toString());
 
         ALKeyPair pair;
         pair = new ALKeyPair(prvKey, pubKey);
@@ -60,9 +48,6 @@ public class KeyGenerator {
         String hex;
         hex = Hex.toHexString(keyBytes);
 
-//        String unpadded;
-//        unpadded = removePadding(hex);
-
         return hex;
     }
 
@@ -71,12 +56,5 @@ public class KeyGenerator {
 
         byte[] compressed = q.getEncoded(true);
         return Hex.toHexString(compressed);
-    }
-
-    private String removePadding(String paddedKey) {
-        String key;
-        key = paddedKey.replaceFirst("^0+(?!$)", "");
-
-        return key;
     }
 }
